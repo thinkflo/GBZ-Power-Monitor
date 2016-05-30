@@ -7,6 +7,8 @@
 # source: https://github.com/NullCorn/GBZ-Power-Monitor/
 
 import RPi.GPIO as GPIO
+import logging
+import threading
 import os
 import sys
 import time
@@ -20,42 +22,68 @@ shutdownVideo  = "~/GBZ-Power-Monitor/lowbattshutdown.mp4" # use no space or non
 lowalertVideo  = "~/GBZ-Power-Monitor/lowbattalert.mp4"    # use no space or non-alphanum characters
 playerFlag     = 0
 
-GPIO.setmode(GPIO.BCM)
-GPIO.setup(batteryGPIO, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-GPIO.setup(powerGPIO, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+def GPIOSetup:
+  GPIO.setmode(GPIO.BCM)
+  GPIO.setup(batteryGPIO, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+  GPIO.setup(powerGPIO, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+def batteryMonitorWorker(channel):
+  status = "polling"
+  logging.debug('Launch Battery Monitor')
+  
+  while status is not "exit":
+
+    for bounceSample in range(1, int(round(powerTimeout / sampleRate))):
+      time.sleep(sampleRate)
+
+      if GPIO.input(powerGPIO) is 1:
+         break
+
 
 def lowBattery(channel):
-  #Checking for LED bounce for the duration of the battery Timeout
-  for bounceSample in range(1, int(round(batteryTimeout / sampleRate))):
-    time.sleep(sampleRate)
+    thread = threading.Thread(target=batteryMonitorWorker, args=(info,))
+    thread.start()
+    while True:
+        try:
+            logging.debug('Hello from main')
+            time.sleep(0.75)
+        except KeyboardInterrupt:
+            info['stop'] = True
+            break
+    thread.join()
 
-    if GPIO.input(batteryGPIO) is 1:
-       break
+    #Checking for LED bounce for the duration of the battery Timeout
+    for bounceSample in range(1, int(round(batteryTimeout / sampleRate))):
+      time.sleep(sampleRate)
+
+      for bounceSample in range(1, int(round(powerTimeout / sampleRate))):
+      if GPIO.input(batteryGPIO) is 1:
+         break
   
-  global playerFlag   
-  while playerFlag is 1:
-    time.sleep(1)
+    global playerFlag   
+    while playerFlag is 1:
+      time.sleep(1)
      
-  #If the LED is a solid condition, there will be no bounce.  Launch shutdown video and then gracefully shutdown
-  if bounceSample is int(round(batteryTimeout / sampleRate)) - 1:
-    playerFlag = 1
-    os.system("/usr/bin/omxplayer --no-osd --layer 999999 " + shutdownVideo + " --alpha 180;sudo shutdown -h now");
-    playerFlag = 0
-    sys.exit(0)
+    #If the LED is a solid condition, there will be no bounce.  Launch shutdown video and then gracefully shutdown
+    if bounceSample is int(round(batteryTimeout / sampleRate)) - 1:
+      playerFlag = 1
+      os.system("/usr/bin/omxplayer --no-osd --layer 999999 " + shutdownVideo + " --alpha 180;sudo shutdown -h now");
+      playerFlag = 0
+      sys.exit(0)
 
-  #If the LED is a solid for more than 10% of the timeout, we know that the battery is getting low.  Launch the Low Battery alert. 
-  if bounceSample > int(round(batteryTimeout / sampleRate * 0.1)):
-    playerFlag = 1
-    os.system("/usr/bin/omxplayer --no-osd --layer 999999 " + lowalertVideo + " --alpha 160;");
-    playerFlag = 0
+    #If the LED is a solid for more than 10% of the timeout, we know that the battery is getting low.  Launch the Low Battery alert. 
+    if bounceSample > int(round(batteryTimeout / sampleRate * 0.1)):
+      playerFlag = 1
+      os.system("/usr/bin/omxplayer --no-osd --layer 999999 " + lowalertVideo + " --alpha 160;");
+      playerFlag = 0
     
-    #Discovered a bug with the Python GPIO library and threaded events.  Need to unbind and rebind after a System Call or the program will crash
-    GPIO.remove_event_detect(batteryGPIO)
-    GPIO.add_event_detect(batteryGPIO, GPIO.BOTH, callback=lowBattery, bouncetime=300)
+      #Discovered a bug with the Python GPIO library and threaded events.  Need to unbind and rebind after a System Call or the program will crash
+      GPIO.remove_event_detect(batteryGPIO)
+      GPIO.add_event_detect(batteryGPIO, GPIO.BOTH, callback=lowBattery, bouncetime=300)
     
-    #If we know the battery is low, we aggresively monitor the level to ensure we shutdown once the Power Timeout is exceeded.
-    lowBattery(batteryGPIO)
-    
+      #If we know the battery is low, we aggresively monitor the level to ensure we shutdown once the Power Timeout is exceeded.
+      lowBattery(batteryGPIO)  
+
 def powerSwitch(channel):
   #Checking for LED bounce for the duration of the Power Timeout
   for bounceSample in range(1, int(round(powerTimeout / sampleRate))):
@@ -79,6 +107,10 @@ def powerSwitch(channel):
       sys.exit(0)
 
 def main():
+  GPIOSetup()
+  logging.basicConfig(level=logging.DEBUG, format='%(relativeCreated)6d %(threadName)s %(message)s')
+  info = {'stop': False}
+
   #if the Low Battery LED is active when the program launches, handle it 
   if GPIO.input(batteryGPIO) is 0:
     lowBattery(batteryGPIO)
@@ -97,7 +129,8 @@ def main():
   except KeyboardInterrupt:
     GPIO.cleanup()
 
-main()
+if __name__ == '__main__':
+    main()
 
 #We make an endless loop so the threads running the GPIO events will always be listening, in the future we can add Battery Level monitoring here
 while True:
