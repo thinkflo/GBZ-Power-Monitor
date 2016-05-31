@@ -21,27 +21,33 @@ powerTimeout   = 1   # 1 second
 shutdownVideo  = "~/GBZ-Power-Monitor/lowbattshutdown.mp4" # use no space or non-alphanum characters
 lowalertVideo  = "~/GBZ-Power-Monitor/lowbattalert.mp4"    # use no space or non-alphanum characters
 playerFlag     = 0
+batterySample  = 10
 
 def GPIOSetup:
   GPIO.setmode(GPIO.BCM)
   GPIO.setup(batteryGPIO, GPIO.IN, pull_up_down=GPIO.PUD_UP)
   GPIO.setup(powerGPIO, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
-def batteryMonitorWorker(channel):
-  status = "polling"
-  logging.debug('Launch Battery Monitor')
-  
-  while status is not "exit":
+def batteryState(arg):
+  logging.debug('Launch Battery Polling Worker')
+  global batterySample
+  global batteryState
 
-    for bounceSample in range(1, int(round(powerTimeout / sampleRate))):
+  while not arg['stop']:
+    batteryState = 0
+    
+    for bounceSample in range(1, int(round(batterySample / sampleRate))):
       time.sleep(sampleRate)
-
-      if GPIO.input(powerGPIO) is 1:
-         break
-
+      
+      result = {
+        0 : lambda batteryState: ++batteryState,
+        1 : lambda batteryState: --batteryState
+      }[GPIO.input(powerGPIO)](batteryState)
+    
+    print batteryState
 
 def lowBattery(channel):
-    thread = threading.Thread(target=batteryMonitorWorker, args=(info,))
+    thread = threading.Thread(target=batteryState, args=(info,))
     thread.start()
     while True:
         try:
