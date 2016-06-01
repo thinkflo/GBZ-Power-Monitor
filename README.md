@@ -1,4 +1,4 @@
-# GBZ-Power-Monitor V1.0a by Popcorn 🍿
+# GBZ-Power-Monitor V1.1 by Popcorn 🍿
 
 This is a Power Management utlity which is primarily built for the [Gameboy Zero](http://sudomod.com/hi/) project.  This adds graceful shutdowns from the main power switch and automatic low battery alerts and shutdowns when the battery level is low.  This is meant to be used in concert with the provided list of required hardware and components within a Retropie 3.7+ environment.
 
@@ -72,9 +72,7 @@ echo "@reboot     /usr/bin/nice -n 19 /usr/bin/python ~/GBZ-Power-Monitor/gbz_po
 
 Keeping Up-to-Date
 ------------------
-I'm always tinkering with the script to fix bugs and improve it's stablity.  There's a bunch of changes I'm planning to add including the ability to detect when the power is plugged back in, which would cancel the shutdown process.  Presently, once the shutdown process is activated, it will shutdown even if you had rushed to go plug in the unit.  I also want to add logging and implement proper threaded processes.  Right now, it's a bit uglier than I would want.
-
-So, as I continue to tinker and add these things, you can make sure you have the latest updates by issuing this command
+I'm always tinkering with the script to fix bugs and improve it's stablity. So, as I continue to tinker and add things, you can make sure you have the latest updates by issuing this command
 
 ```
 cd ~/GBZ-Power-Monitor;git pull origin master
