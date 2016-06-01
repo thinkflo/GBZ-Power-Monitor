@@ -108,6 +108,8 @@ def main():
     logging.basicConfig(level=logging.DEBUG, format='%(relativeCreated)6d %(threadName)s %(message)s')
     info = {'stop': False}
     
+    initGPIO()
+    
     #if the Low Battery LED is active when the program launches, handle it 
     if GPIO.input(batteryGPIO) is 0:
         lowBattery(batteryGPIO)
